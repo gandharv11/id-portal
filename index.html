@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>University ID Card Service Portal | Lovely Professional University</title>
+  <!-- IBM Plex Sans Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Top SMS OTP Dispatch Banner -->
+  <div id="smsBanner" class="sms-banner hidden" role="status" aria-live="polite">
+    <div class="sms-content">
+      <strong>SMS VERIFICATION DISPATCH</strong>
+      <p>Your Campus ID Portal verification code is <span id="smsOtpCode" class="otp-highlight">4829</span></p>
+    </div>
+    <button type="button" class="btn-secondary btn-sm" onclick="autoFillOtp()">Auto-Fill Code</button>
+  </div>
+
+  <!-- Top White Header with LPU Branding & Thin Orange Bottom Border -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <div class="brand-wrapper">
+        <!-- Official LPU Logo Asset with Clean Placeholder Fallback -->
+        <div class="lpu-brand-lockup">
+          <img
+            src="https://www.lpu.in/images/logo/logo.svg"
+            alt="Lovely Professional University Logo"
+            class="lpu-official-logo"
+            onerror="this.classList.add('hidden'); document.getElementById('lpuLogoFallback').classList.remove('hidden');"
+          />
+          <div id="lpuLogoFallback" class="lpu-logo-fallback hidden">
+            <div class="lpu-crest-placeholder" aria-hidden="true">LPU</div>
+            <div class="lpu-wordmark">
+              <span>LOVELY</span>
+              <span>PROFESSIONAL</span>
+              <span>UNIVERSITY</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand-divider" aria-hidden="true"></div>
+
+        <div class="brand-titles">
+          <h1>University ID Card Service Portal</h1>
+          <p>Division of Student Administration <span class="pipe">|</span> Identity &amp; Access Management</p>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button type="button" class="btn-header-action" onclick="openContactModal()">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+          </svg>
+          <span>Contact Support Desk</span>
+        </button>
+
+        <button type="button" id="quickSwitchBtn" class="btn-header-action hidden" onclick="quickSwitchRole()">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span id="quickSwitchText">Switch to Officer View</span>
+        </button>
+
+        <button type="button" id="navProfilePill" class="profile-pill hidden" onclick="toggleProfileModal()" aria-label="Open Verified User Profile">
+          <img id="navAvatar" src="" alt="User Avatar" />
+          <div class="profile-pill-text">
+            <span id="navUserName">User</span>
+            <small id="navUserRole">Student</small>
+          </div>
+          <svg class="chevron-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Skeleton Loader State -->
+    <div id="skeletonLoader" class="skeleton-wrapper hidden" aria-hidden="true">
+      <div class="skeleton-line title"></div>
+      <div class="skeleton-grid">
+        <div class="skeleton-box"></div>
+        <div class="skeleton-box"></div>
+      </div>
+    </div>
+
+    <!-- ==================== 1. AUTHENTICATION & LOGIN SECTION ==================== -->
+    <section id="authSection" class="auth-wrapper">
+      <div class="auth-card">
+        <div class="auth-header">
+          <h2>Portal Authentication</h2>
+          <p>Select your portal role and complete Google Email and Mobile OTP verification.</p>
+        </div>
+
+        <div class="role-selector" role="group" aria-label="Select Portal Role">
+          <button type="button" id="roleStudentBtn" class="role-btn active" onclick="selectLoginRole('student')">
+            I am a Student
+          </button>
+          <button type="button" id="roleOfficerBtn" class="role-btn" onclick="selectLoginRole('officer')">
+            I am an ID Cell Officer
+          </button>
+        </div>
+
+        <form id="loginForm">
+          <div class="form-group">
+            <label>STEP 1: GOOGLE ACCOUNT VERIFICATION <span class="req-star">*</span></label>
+            <button type="button" id="googleSignInBtn" class="btn-google" onclick="openGoogleModal()">
+              <span id="googleBtnText">Sign in with Google Account</span>
+            </button>
+            <small id="linkedEmailText" class="verified-text hidden"></small>
+          </div>
+
+          <div class="form-group">
+            <label for="loginName">FULL LEGAL NAME <span class="req-star">*</span></label>
+            <input type="text" id="loginName" placeholder="Enter your full name" required />
+          </div>
+
+          <div class="form-group" id="loginRegGroup">
+            <label for="loginRegNo">UNIVERSITY REGISTRATION NUMBER (UMS ID) <span class="req-star">*</span></label>
+            <input type="text" id="loginRegNo" placeholder="e.g. 12621448" />
+          </div>
+
+          <div class="form-group">
+            <label for="loginMobile">MOBILE NUMBER (10 DIGITS) <span class="req-star">*</span></label>
+            <div class="input-with-btn">
+              <input type="tel" id="loginMobile" placeholder="Enter 10-digit mobile number" maxlength="10" required />
+              <button type="button" class="btn-secondary" onclick="sendOtp()">Send OTP</button>
+            </div>
+          </div>
+
+          <div id="otpInputGroup" class="form-group hidden">
+            <label for="loginOtp">4-DIGIT VERIFICATION OTP <span class="req-star">*</span></label>
+            <div class="input-with-btn">
+              <input type="text" id="loginOtp" placeholder="Enter 4-digit OTP" maxlength="4" />
+              <button type="button" class="btn-primary" onclick="verifyOtp()">Verify Code</button>
+            </div>
+            <small id="otpStatusText" class="status-hint"></small>
+          </div>
+
+          <button type="submit" class="btn-primary full-width">Access Service Portal</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ==================== 2. STUDENT PORTAL ==================== -->
+    <section id="studentPortal" class="hidden">
+
+      <!-- Connected Horizontal Navigation Tabs -->
+      <nav class="portal-tabs" aria-label="Student Portal Navigation">
+        <button type="button" class="tab-btn active" onclick="switchStudentTab('apply')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <line x1="7" y1="9" x2="17" y2="9"></line>
+            <line x1="7" y1="13" x2="13" y2="13"></line>
+          </svg>
+          <span>Submit ID Request</span>
+        </button>
+        <button type="button" class="tab-btn" onclick="switchStudentTab('track')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <polyline points="12 7 12 12 15 15"></polyline>
+          </svg>
+          <span>Track Request Status</span>
+        </button>
+        <button type="button" class="tab-btn" onclick="switchStudentTab('payments')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+            <line x1="2" y1="10" x2="22" y2="10"></line>
+          </svg>
+          <span>Fee Payment Ledger</span>
+        </button>
+        <button type="button" class="tab-btn" onclick="switchStudentTab('faq')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span>Campus ID FAQs</span>
+        </button>
+        <button type="button" class="tab-btn" onclick="toggleProfileModal()">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+          <span>Verified Profile</span>
+        </button>
+      </nav>
+
+      <!-- STUDENT TAB 1: Submit Request + Live Virtual ID Card Preview -->
+      <div id="studentApplyTab" class="two-col-grid">
+        
+        <!-- Left Column: Application Form -->
+        <div class="card">
+          <div class="panel-heading">
+            <div class="panel-icon-box outline" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+                <line x1="8" y1="8" x2="16" y2="8"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+                <line x1="8" y1="16" x2="12" y2="16"></line>
+              </svg>
+            </div>
+            <div>
+              <h2>New, Replacement, or Correction Application</h2>
+              <p class="subtext">Complete all required fields and upload a formal portrait photo to generate your virtual ID card preview.</p>
+            </div>
+          </div>
+
+          <form id="studentRequestForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="stuName">STUDENT FULL NAME <span class="req-star">*</span></label>
+                <input type="text" id="stuName" required oninput="updateLiveIdPreview()" />
+              </div>
+              <div class="form-group">
+                <label for="stuRegNo">REGISTRATION NUMBER <span class="req-star">*</span></label>
+                <input type="text" id="stuRegNo" required oninput="updateLiveIdPreview()" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="stuCourse">ACADEMIC PROGRAM / SCHOOL <span class="req-star">*</span></label>
+                <select id="stuCourse" required onchange="updateLiveIdPreview()">
+                  <option value="B. Tech CSE">B. Tech CSE</option>
+                  <option value="BCA / MCA">BCA / MCA</option>
+                  <option value="BBA / MBA">BBA / MBA</option>
+                  <option value="B.Sc Mathematics">B.Sc Mathematics</option>
+                  <option value="B.Arch / Design">B.Arch / Design</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="stuBlood">BLOOD GROUP &amp; RESIDENTIAL STATUS</label>
+                <select id="stuBlood" required onchange="updateLiveIdPreview()">
+                  <option value="O+  |  Hostel Resident">O+  |  Hostel Resident</option>
+                  <option value="A+  |  Hostel Resident">A+  |  Hostel Resident</option>
+                  <option value="B+  |  Hostel Resident">B+  |  Hostel Resident</option>
+                  <option value="AB+  |  Hostel Resident">AB+  |  Hostel Resident</option>
+                  <option value="O+  |  Day Scholar">O+  |  Day Scholar</option>
+                  <option value="A+  |  Day Scholar">A+  |  Day Scholar</option>
+                  <option value="B+  |  Day Scholar">B+  |  Day Scholar</option>
+                  <option value="AB+  |  Day Scholar">AB+  |  Day Scholar</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="stuReqType">SERVICE CATEGORY <span class="req-star">*</span></label>
+                <select id="stuReqType" required onchange="updateFeeHint()">
+                  <option value="New ID Card">New ID Card (Rs. 0)</option>
+                  <option value="Correction">Details Correction (Rs. 100)</option>
+                  <option value="Replacement">Replacement Card (Rs. 250)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="stuPhotoInput">UPLOAD PORTRAIT PHOTO <span class="req-star">*</span></label>
+                <div class="custom-file-control">
+                  <input type="file" id="stuPhotoInput" class="sr-only-file" accept="image/jpeg,image/png,image/webp" onchange="handlePhotoUpload(event, 'student')" />
+                  <label for="stuPhotoInput" class="file-choose-btn">
+                    <svg class="file-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span>Choose File</span>
+                  </label>
+                  <span id="fileNameDisplay" class="file-name-text">portrait.jpg</span>
+                  <button type="button" id="clearFileBtn" class="file-clear-btn" onclick="clearStudentPhoto()" title="Remove selected photo" aria-label="Remove selected photo">&times;</button>
+                </div>
+                <small id="fileErrorText" class="file-helper-text">JPG, PNG (Max 2MB)</small>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="stuDetails">SPECIFIC REASON / CORRECTION DETAILS <span class="req-star">*</span></label>
+              <textarea id="stuDetails" rows="3" placeholder="Specify hostel block change, spelling correction, lost card location, or fresh admission batch." required></textarea>
+            </div>
+
+            <div id="feeNoticeBox" class="fee-notice">
+              Applicable Fee: Rs. 0 (Standard First-Issue Student Identity Card)
+            </div>
+
+            <div class="form-actions-bar">
+              <button type="submit" class="btn-primary">
+                <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+                <span>Submit Application</span>
+              </button>
+              <button type="button" id="resetFormBtn" class="btn-secondary" onclick="resetStudentApplicationForm()">
+                <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <polyline points="1 4 1 10 7 10"></polyline>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                <span>Reset Form</span>
+              </button>
+            </div>
+
+            <p class="mandatory-footnote">All fields marked with <span class="req-star">*</span> are mandatory.</p>
+          </form>
+        </div>
+
+        <!-- Right Column: Virtual Identity Card Preview -->
+        <div class="card">
+          <div class="panel-heading">
+            <div class="panel-icon-box solid" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                <circle cx="8" cy="12" r="2"></circle>
+                <line x1="13" y1="10" x2="18" y2="10"></line>
+                <line x1="13" y1="14" x2="16" y2="14"></line>
+              </svg>
+            </div>
+            <div>
+              <h2>Virtual Identity Card Preview</h2>
+              <p class="subtext">Realtime rendering of your university card based on entered data and uploaded photo.</p>
+            </div>
+          </div>
+
+          <div class="virtual-id-card">
+            <div class="id-card-header">
+              <div class="id-header-crest" aria-hidden="true">
+                <img
+                  src="https://www.lpu.in/images/logo/logo.svg"
+                  alt=""
+                  class="id-crest-img"
+                  onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"
+                />
+                <span class="id-crest-fallback hidden">LPU</span>
+              </div>
+              <div class="id-header-titles">
+                <span class="uni-title">LOVELY PROFESSIONAL UNIVERSITY</span>
+                <span class="uni-tag">Transforming Education - Transforming India</span>
+              </div>
+            </div>
+
+            <div class="id-card-body">
+              <div class="id-main-profile">
+                <div class="id-photo-box">
+                  <img id="previewPhoto" src="" alt="Student Portrait Preview" />
+                </div>
+                <div class="id-student-summary">
+                  <h3 id="previewName">Student Name</h3>
+                  <p id="previewCourse" class="id-course-text">B. Tech CSE</p>
+                  <small class="id-mobile-meta">Mobile: <span id="previewMobile">9876543210</span></small>
+                </div>
+              </div>
+
+              <div class="id-meta-grid">
+                <div class="id-meta-cell">
+                  <span class="meta-label">Registration No.</span>
+                  <strong id="previewReg" class="meta-val">12621448</strong>
+                </div>
+                <div class="id-meta-cell">
+                  <span class="meta-label">Blood Group</span>
+                  <strong id="previewBlood" class="meta-val">O+  |  Hostel Resident</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="id-preview-disclaimer" role="note">
+            <svg class="disclaimer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <p>This is a preview of your virtual ID card. The final card may have a different design.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- STUDENT TAB 2: Track Requests (Read-Only Status) -->
+      <div id="studentTrackTab" class="card hidden">
+        <h2>Submitted Applications &amp; Live Status</h2>
+        <p class="subtext">Processing status is locked for students and updated solely by the ID Cell Officer upon verification.</p>
+        <div id="studentRequestsList" class="requests-list"></div>
+      </div>
+
+      <!-- STUDENT TAB 3: Fee Payment -->
+      <div id="studentPaymentsTab" class="card hidden">
+        <h2>Service Fee Payment Desk</h2>
+        <p class="subtext">Clear pending charges for Details Correction (Rs. 100) or Replacement Cards (Rs. 250).</p>
+        <div id="studentPaymentsList" class="requests-list"></div>
+      </div>
+
+      <!-- STUDENT TAB 4: 11 FAQs -->
+      <div id="studentFaqTab" class="card hidden">
+        <h2>Frequently Asked Questions (Campus ID Card Services)</h2>
+        <p class="subtext">Standard operating procedures for university identity cards, turnstile access, and residential updates.</p>
+        <div id="faqContainerStudent" class="faq-list"></div>
+      </div>
+
+    </section>
+
+    <!-- ==================== 3. ID CELL OFFICER PORTAL ==================== -->
+    <section id="officerPortal" class="hidden">
+
+      <!-- 4-Column Summary Metrics Bar -->
+      <div class="summary-grid">
+        <div class="stat-card">
+          <span>Total Logged Requests</span>
+          <strong id="oTotalCount">0</strong>
+        </div>
+        <div class="stat-card">
+          <span>Incomplete / Active</span>
+          <strong id="oIncompleteCount">0</strong>
+        </div>
+        <div class="stat-card">
+          <span>Ready for Pickup</span>
+          <strong id="oReadyCount">0</strong>
+        </div>
+        <div class="stat-card">
+          <span>Completed &amp; Issued</span>
+          <strong id="oCompletedCount">0</strong>
+        </div>
+      </div>
+
+      <nav class="portal-tabs" aria-label="Officer Portal Navigation">
+        <button type="button" class="tab-btn active" onclick="switchOfficerTab('manage')">
+          <span>Manage All Student Requests</span>
+        </button>
+        <button type="button" class="tab-btn" onclick="switchOfficerTab('walkin')">
+          <span>Physical Walk-In Desk Entry</span>
+        </button>
+        <button type="button" class="tab-btn" onclick="switchOfficerTab('faq')">
+          <span>Service Desk FAQs (11)</span>
+        </button>
+        <button type="button" class="tab-btn" onclick="toggleProfileModal()">
+          <span>Officer Profile</span>
+        </button>
+      </nav>
+
+      <!-- OFFICER TAB 1: Manage, Filter & Update Records -->
+      <div id="officerManageTab" class="card">
+        <h2>Master Identity Request Register</h2>
+        <p class="subtext">Verify applications, update processing stages, filter Completed vs Incomplete records, or edit student particulars.</p>
+
+        <div class="filter-bar">
+          <input type="text" id="officerSearch" placeholder="Search by Student Name, Reg No, or Request ID..." oninput="renderOfficerRequests()" />
+
+          <select id="officerRecordFilter" onchange="triggerFilteredRender()">
+            <option value="All">All Records (Completed &amp; Incomplete)</option>
+            <option value="Incomplete">Filter: Incomplete Records Only</option>
+            <option value="Completed">Filter: Completed Records Only</option>
+            <option value="Submitted">Stage: Submitted</option>
+            <option value="Under Verification">Stage: Under Verification</option>
+            <option value="Ready for Pickup">Stage: Ready for Pickup</option>
+          </select>
+
+          <select id="officerCategoryFilter" onchange="triggerFilteredRender()">
+            <option value="All">All Request Categories</option>
+            <option value="New ID Card">New ID Card</option>
+            <option value="Replacement">Replacement</option>
+            <option value="Correction">Correction</option>
+          </select>
+        </div>
+
+        <div id="officerRequestsList" class="requests-list"></div>
+      </div>
+
+      <!-- OFFICER TAB 2: Physical Walk-In Desk Form -->
+      <div id="officerWalkinTab" class="card hidden">
+        <h2 id="walkinFormTitle">Physical Walk-In Student Request Entry</h2>
+        <p class="subtext">For students visiting the administrative desk in person without prior online submission.</p>
+
+        <form id="officerWalkinForm">
+          <input type="hidden" id="editRecordId" />
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="wName">STUDENT FULL NAME <span class="req-star">*</span></label>
+              <input type="text" id="wName" placeholder="e.g. Simranjit Kaur" required />
+            </div>
+            <div class="form-group">
+              <label for="wRegNo">REGISTRATION NUMBER <span class="req-star">*</span></label>
+              <input type="text" id="wRegNo" placeholder="e.g. 12308890" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="wCourse">DEPARTMENT / SCHOOL <span class="req-star">*</span></label>
+              <select id="wCourse" required>
+                <option value="B. Tech CSE">B. Tech CSE</option>
+                <option value="BCA / MCA">BCA / MCA</option>
+                <option value="BBA / MBA">BBA / MBA</option>
+                <option value="B.Sc Mathematics">B.Sc Mathematics</option>
+                <option value="B.Arch / Design">B.Arch / Design</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="wMobile">STUDENT MOBILE NUMBER <span class="req-star">*</span></label>
+              <input type="tel" id="wMobile" placeholder="10-digit mobile number" maxlength="10" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="wReqType">REQUEST CATEGORY <span class="req-star">*</span></label>
+              <select id="wReqType" required>
+                <option value="New ID Card">New ID Card (Rs. 0)</option>
+                <option value="Correction">Details Correction (Rs. 100)</option>
+                <option value="Replacement">Replacement (Rs. 250)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="wStatus">PROCESSING STAGE <span class="req-star">*</span></label>
+              <select id="wStatus" required>
+                <option value="Submitted">Submitted</option>
+                <option value="Under Verification" selected>Under Verification (Checked at Desk)</option>
+                <option value="Ready for Pickup">Ready for Pickup</option>
+                <option value="Completed">Completed (Issued)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="wPhotoInput">ATTACH STUDENT PORTRAIT PHOTO</label>
+              <input type="file" id="wPhotoInput" accept="image/jpeg,image/png,image/webp" onchange="handlePhotoUpload(event, 'walkin')" />
+            </div>
+            <div class="form-group">
+              <label for="wFeeStatus">FEE SETTLEMENT STATUS <span class="req-star">*</span></label>
+              <select id="wFeeStatus">
+                <option value="Collected at Counter">Collected at Counter</option>
+                <option value="Pending">Pending Payment</option>
+                <option value="No Fee Required">No Fee Required</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="wDetails">APPLICATION PARTICULARS &amp; OFFICER VERIFICATION NOTES <span class="req-star">*</span></label>
+            <textarea id="wDetails" rows="3" placeholder="Enter physical documents inspected or reason for desk application..." required></textarea>
+          </div>
+
+          <div class="form-actions-bar">
+            <button type="submit" id="walkinSubmitBtn" class="btn-primary">Record Walk-In Application</button>
+            <button type="button" id="walkinCancelBtn" class="btn-secondary hidden" onclick="cancelOfficerEdit()">Cancel Edit</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- OFFICER TAB 3: 11 FAQs -->
+      <div id="officerFaqTab" class="card hidden">
+        <h2>Frequently Asked Questions (Campus ID Card Services)</h2>
+        <p class="subtext">Reference guidelines for students and ID Cell Officers.</p>
+        <div id="faqContainerOfficer" class="faq-list"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ==================== FOOTER WITH BRAND TAGLINE & LEGAL LINKS ==================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span>Lovely Professional University <span class="pipe">|</span> Student Administration Portal</span>
+        <div class="footer-links">
+          <button type="button" class="link-btn" onclick="openLegalModal('tos')">Terms of Service</button>
+          <button type="button" class="link-btn" onclick="openLegalModal('privacy')">Privacy Policy</button>
+          <button type="button" class="link-btn" onclick="openContactModal()">Contact Support Desk</button>
+        </div>
+      </div>
+      <div class="footer-right">
+        <span>Your Identity <span class="pipe">|</span> Our Pride</span>
+        <span class="footer-orange-rule" aria-hidden="true"></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== MODAL 1: CONTACT SUPPORT (NUMBER HIDDEN IN UI) ==================== -->
+  <div id="contactModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="contactModalHeading">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="contactModalHeading">Contact ID Card Support Desk</h3>
+        <button type="button" class="close-btn" onclick="closeContactModal()">Close</button>
+      </div>
+      <p class="modal-subtext">Select a communication channel below to connect directly with the Campus ID Helpdesk:</p>
+
+      <div class="contact-options">
+        <a href="https://wa.me/918340452281?text=Hello%2C%20I%20need%20assistance%20regarding%20my%20Student%20ID%20Card%20Request."
+           target="_blank"
+           rel="noopener noreferrer"
+           class="contact-card">
+          <strong>Option 1: Chat on WhatsApp</strong>
+          <small>Launches WhatsApp messaging directly with the support desk officer</small>
+        </a>
+
+        <a href="tel:8340452281" class="contact-card">
+          <strong>Option 2: Place Direct Voice Call</strong>
+          <small>Opens your telephone dialer application to call the support desk</small>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2: CLEAN GOOGLE ACCOUNT SIGN-IN ==================== -->
+  <div id="googleModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="googleModalHeading">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="googleModalHeading">Google Account Verification</h3>
+        <button type="button" class="close-btn" onclick="closeGoogleModal()">Close</button>
+      </div>
+      <p class="modal-subtext">Enter your personal or university Google email address to link your identity profile:</p>
+
+      <div class="form-group">
+        <label for="customGoogleEmail">GOOGLE EMAIL ADDRESS <span class="req-star">*</span></label>
+        <input type="email" id="customGoogleEmail" placeholder="name@gmail.com" />
+      </div>
+
+      <button type="button" class="btn-primary full-width" onclick="useCustomGoogleAccount()">
+        Verify &amp; Link Google Account
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 3: USER PROFILE ==================== -->
+  <div id="profileModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="profileModalHeading">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="profileModalHeading">Authenticated User Profile</h3>
+        <button type="button" class="close-btn" onclick="toggleProfileModal()">Close</button>
+      </div>
+      <div class="profile-details-box">
+        <img id="profModalAvatar" src="" alt="Profile" class="prof-large-avatar" />
+        <h4 id="profModalName">User Name</h4>
+        <div id="profModalRole" class="badge">Role</div>
+
+        <div class="prof-info-list">
+          <div><span>Linked Google Email:</span> <strong id="profModalEmail">-</strong></div>
+          <div><span>Verified Mobile:</span> <strong id="profModalMobile">-</strong></div>
+          <div><span>Registration / Staff ID:</span> <strong id="profModalReg">-</strong></div>
+          <div><span>Verification Status:</span> <strong class="text-verified">Google &amp; OTP Verified</strong></div>
+        </div>
+
+        <button type="button" class="btn-danger full-width" onclick="logoutUser()">Sign Out of Portal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: TERMS OF SERVICE & PRIVACY POLICY ==================== -->
+  <div id="legalModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="legalModalTitle">Legal Policy</h3>
+        <button type="button" class="close-btn" onclick="closeLegalModal()">Close</button>
+      </div>
+      <div id="legalModalBody" class="legal-content"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

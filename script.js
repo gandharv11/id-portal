@@ -1,5 +1,5 @@
 // ============================================================================
-// REAL EMAIL OTP CONFIGURATION (CONFIGURED FOR EMAILJS.COM)
+// REAL EMAIL OTP CONFIGURATION & OWNER OFFICER PASSCODE
 // ============================================================================
 const EMAILJS_CONFIG = {
   ENABLED: true,
@@ -7,6 +7,9 @@ const EMAILJS_CONFIG = {
   SERVICE_ID: "service_iv8ezj3",
   TEMPLATE_ID: "template_avohrzq"
 };
+
+// Unique passcode required to register or log in as an ID Cell Officer
+const OFFICER_SECRET_PASSCODE = "1104";
 
 if (EMAILJS_CONFIG.ENABLED && window.emailjs) {
   emailjs.init({ publicKey: EMAILJS_CONFIG.PUBLIC_KEY });
@@ -235,12 +238,35 @@ function renderFaqs() {
   document.getElementById("faqContainerOfficer").innerHTML = html;
 }
 
-// ==================== AUTHENTICATION & OTP LOGIC ====================
+// ==================== AUTHENTICATION, ROLE LOCK & PASSCODE LOGIC ====================
 window.selectLoginRole = function (role) {
   selectedRole = role;
   document.getElementById("roleStudentBtn").classList.toggle("active", role === "student");
   document.getElementById("roleOfficerBtn").classList.toggle("active", role === "officer");
   document.getElementById("loginRegGroup").classList.toggle("hidden", role === "officer");
+  document.getElementById("loginOfficerCodeGroup").classList.toggle("hidden", role === "student");
+
+  // If an email is already linked, verify that it does not conflict with the newly selected role
+  if (linkedGoogleEmail && usersDB[linkedGoogleEmail]) {
+    const registeredRole = usersDB[linkedGoogleEmail].role;
+    if (registeredRole !== selectedRole) {
+      const roleLabel = registeredRole === "student" ? "Student" : "ID Cell Officer";
+      alert(
+        "Role Conflict: The email '" +
+          linkedGoogleEmail +
+          "' is already registered as a " +
+          roleLabel +
+          " account and cannot be used for the other role."
+      );
+      // Reset linked email so they cannot proceed with the wrong role
+      linkedGoogleEmail = "";
+      isOtpVerified = false;
+      document.getElementById("googleBtnText").textContent = "Sign in with Google Account";
+      document.getElementById("linkedEmailText").classList.add("hidden");
+      document.getElementById("otpInputGroup").classList.add("hidden");
+      document.getElementById("loginForm").reset();
+    }
+  }
 };
 
 window.openGoogleModal = function () {
@@ -259,11 +285,32 @@ window.useCustomGoogleAccount = function () {
     return;
   }
 
+  const existingAccount = usersDB[emailInput];
+
+  // Enforce strict 1-to-1 Email-to-Role lock
+  if (existingAccount && existingAccount.role !== selectedRole) {
+    if (existingAccount.role === "student" && selectedRole === "officer") {
+      alert(
+        "Access Denied: This email (" +
+          emailInput +
+          ") is registered as a Student account and cannot be registered or used as an ID Cell Officer."
+      );
+      return;
+    }
+    if (existingAccount.role === "officer" && selectedRole === "student") {
+      alert(
+        "Access Denied: This email (" +
+          emailInput +
+          ") is registered as an ID Cell Officer account and cannot be used as a Student account."
+      );
+      return;
+    }
+  }
+
   linkedGoogleEmail = emailInput;
   document.getElementById("googleBtnText").textContent = "Google Account Linked (Verified)";
   const badge = document.getElementById("linkedEmailText");
 
-  const existingAccount = usersDB[linkedGoogleEmail];
   if (existingAccount) {
     document.getElementById("loginName").value = existingAccount.name || "";
     document.getElementById("loginMobile").value = existingAccount.mobile || "";
@@ -275,7 +322,7 @@ window.useCustomGoogleAccount = function () {
     }
     badge.textContent = "Welcome back! Saved profile found for: " + linkedGoogleEmail;
   } else {
-    badge.textContent = "Linked New Google Account: " + linkedGoogleEmail;
+    badge.textContent = "Linked Google Account: " + linkedGoogleEmail;
   }
 
   badge.classList.remove("hidden");
@@ -286,6 +333,22 @@ window.sendOtp = function () {
   if (!linkedGoogleEmail) {
     alert("Please link your Google Email Account in Step 1 first so we can send your OTP.");
     return;
+  }
+
+  // Block role mismatch before sending OTP
+  const existingAccount = usersDB[linkedGoogleEmail];
+  if (existingAccount && existingAccount.role !== selectedRole) {
+    alert("Access Denied: This email is registered under a different role.");
+    return;
+  }
+
+  // If logging in as Officer, verify unique passcode 1104 BEFORE sending email OTP
+  if (selectedRole === "officer") {
+    const enteredPasscode = document.getElementById("loginOfficerPasscode").value.trim();
+    if (enteredPasscode !== OFFICER_SECRET_PASSCODE) {
+      alert("Invalid Officer Authorization Passcode! Only authorized officers with the owner's unique passcode can request an Officer OTP.");
+      return;
+    }
   }
 
   const mobile = document.getElementById("loginMobile").value.trim();
@@ -301,7 +364,6 @@ window.sendOtp = function () {
   const sendBtn = document.getElementById("sendOtpBtn");
   document.getElementById("otpInputGroup").classList.remove("hidden");
 
-  // Calculate actual expiry clock time (15 minutes from now)
   const expiryDate = new Date(Date.now() + 15 * 60000);
   const formattedExpiryTime = expiryDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -309,10 +371,9 @@ window.sendOtp = function () {
     sendBtn.textContent = "Sending Email...";
     sendBtn.disabled = true;
 
-    // Sends otp_code, passcode, and otp so any template variable name works
     const templateParams = {
       to_email: linkedGoogleEmail,
-      to_name: document.getElementById("loginName").value.trim() || "Student",
+      to_name: document.getElementById("loginName").value.trim() || "User",
       otp_code: generatedOtp,
       passcode: generatedOtp,
       otp: generatedOtp,
@@ -364,18 +425,39 @@ document.getElementById("loginForm").addEventListener("submit", function (e) {
     alert("Please complete Step 1: Sign in with your Google Account.");
     return;
   }
+
+  const emailKey = linkedGoogleEmail.toLowerCase().trim();
+  const existingProfile = usersDB[emailKey];
+
+  // Enforce strict Email-to-Role lock on submit
+  if (existingProfile && existingProfile.role !== selectedRole) {
+    alert(
+      "Access Denied: This email is already registered as a " +
+        (existingProfile.role === "student" ? "Student" : "ID Cell Officer") +
+        " and cannot log in under a different role."
+    );
+    return;
+  }
+
+  // Enforce Unique Officer Passcode (1104) on submit
+  if (selectedRole === "officer") {
+    const enteredPasscode = document.getElementById("loginOfficerPasscode").value.trim();
+    if (enteredPasscode !== OFFICER_SECRET_PASSCODE) {
+      alert("Access Denied: Invalid Officer Authorization Passcode.");
+      return;
+    }
+  }
+
   if (!isOtpVerified) {
     alert("Please click Send OTP and verify your 4-digit OTP code.");
     return;
   }
 
-  const emailKey = linkedGoogleEmail.toLowerCase().trim();
-  const existingProfile = usersDB[emailKey] || {};
-
+  const savedData = existingProfile || {};
   const name = document.getElementById("loginName").value.trim();
   const mobile = document.getElementById("loginMobile").value.trim();
   const regNo = selectedRole === "student"
-    ? (document.getElementById("loginRegNo").value.trim() || existingProfile.regNo || "12621448")
+    ? (document.getElementById("loginRegNo").value.trim() || savedData.regNo || "12621448")
     : "ID-CELL-OFFICER";
 
   currentUser = {
@@ -384,9 +466,9 @@ document.getElementById("loginForm").addEventListener("submit", function (e) {
     mobile,
     regNo,
     role: selectedRole,
-    course: existingProfile.course || "B. Tech CSE",
-    bloodHostel: existingProfile.bloodHostel || "O+  |  Hostel Resident",
-    photo: existingProfile.photo || currentStudentPhotoData || "",
+    course: savedData.course || "B. Tech CSE",
+    bloodHostel: savedData.bloodHostel || "O+  |  Hostel Resident",
+    photo: savedData.photo || currentStudentPhotoData || "",
     avatar: createDefaultAvatar(name, "pill")
   };
 
@@ -397,32 +479,30 @@ document.getElementById("loginForm").addEventListener("submit", function (e) {
   showSkeletonBriefly(launchPortalForUser);
 });
 
-// ==================== PORTAL INITIALIZATION & ROLE SWITCHING ====================
+// ==================== PORTAL INITIALIZATION ====================
 function launchPortalForUser() {
   if (!currentUser) {
     document.getElementById("authSection").classList.remove("hidden");
     document.getElementById("studentPortal").classList.add("hidden");
     document.getElementById("officerPortal").classList.add("hidden");
     document.getElementById("navProfilePill").classList.add("hidden");
-    document.getElementById("quickSwitchBtn").classList.add("hidden");
     return;
+  }
+
+  // Ensure active session always respects the locked role in usersDB
+  const emailKey = (currentUser.email || "").toLowerCase().trim();
+  if (usersDB[emailKey] && usersDB[emailKey].role) {
+    currentUser.role = usersDB[emailKey].role;
   }
 
   document.getElementById("authSection").classList.add("hidden");
   document.getElementById("navProfilePill").classList.remove("hidden");
-  document.getElementById("quickSwitchBtn").classList.remove("hidden");
 
   const pillAvatar = currentUser.photo || createDefaultAvatar(currentUser.name, "pill");
   document.getElementById("navAvatar").src = pillAvatar;
   document.getElementById("navUserName").textContent = currentUser.name;
   document.getElementById("navUserRole").textContent =
     currentUser.role === "officer" ? "ID Cell Officer" : "Student";
-
-  const switchSpan = document.getElementById("quickSwitchText");
-  if (switchSpan) {
-    switchSpan.textContent =
-      currentUser.role === "student" ? "Switch to Officer View" : "Switch to Student View";
-  }
 
   document.getElementById("profModalAvatar").src = pillAvatar;
   document.getElementById("profModalName").textContent = currentUser.name;
@@ -460,16 +540,11 @@ function launchPortalForUser() {
   }
 }
 
-window.quickSwitchRole = function () {
-  if (!currentUser) return;
-  currentUser.role = currentUser.role === "student" ? "officer" : "student";
-  localStorage.setItem("campusActiveUser_v4", JSON.stringify(currentUser));
-  showSkeletonBriefly(launchPortalForUser);
-};
-
 window.logoutUser = function () {
   if (currentUser && currentUser.email) {
-    usersDB[currentUser.email.toLowerCase()] = { ...currentUser };
+    const emailKey = currentUser.email.toLowerCase();
+    const lockedRole = usersDB[emailKey] ? usersDB[emailKey].role : currentUser.role;
+    usersDB[emailKey] = { ...currentUser, role: lockedRole };
     saveUsersDB();
   }
 
@@ -483,6 +558,7 @@ window.logoutUser = function () {
   document.getElementById("otpInputGroup").classList.add("hidden");
   document.getElementById("googleBtnText").textContent = "Sign in with Google Account";
   document.getElementById("profileModal").classList.add("hidden");
+  selectLoginRole("student");
   launchPortalForUser();
 };
 

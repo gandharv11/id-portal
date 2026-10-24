@@ -61,16 +61,6 @@
           <span>Contact Support Desk</span>
         </button>
 
-        <button type="button" id="quickSwitchBtn" class="btn-header-action hidden" onclick="quickSwitchRole()">
-          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-          <span id="quickSwitchText">Switch to Officer View</span>
-        </button>
-
         <button type="button" id="navProfilePill" class="profile-pill hidden" onclick="toggleProfileModal()" aria-label="Open Verified User Profile">
           <img id="navAvatar" src="" alt="User Avatar" />
           <div class="profile-pill-text">
@@ -101,7 +91,7 @@
       <div class="auth-card">
         <div class="auth-header">
           <h2>Portal Authentication</h2>
-          <p>Select your portal role and complete Google Email and OTP verification. Returning users' profiles and requests are restored automatically.</p>
+          <p>Select your portal role and complete Google Email and OTP verification. Accounts are permanently bound to their registered role.</p>
         </div>
 
         <div class="role-selector" role="group" aria-label="Select Portal Role">
@@ -127,9 +117,17 @@
             <input type="text" id="loginName" placeholder="Enter your full name" required />
           </div>
 
+          <!-- Student-Only Registration Number Field -->
           <div class="form-group" id="loginRegGroup">
             <label for="loginRegNo">UNIVERSITY REGISTRATION NUMBER (UMS ID) <span class="req-star">*</span></label>
             <input type="text" id="loginRegNo" placeholder="e.g. 12621448" />
+          </div>
+
+          <!-- Officer-Only Secret Passcode Field -->
+          <div class="form-group hidden" id="loginOfficerCodeGroup">
+            <label for="loginOfficerPasscode">OFFICER AUTHORIZATION PASSCODE <span class="req-star">*</span></label>
+            <input type="password" id="loginOfficerPasscode" placeholder="Enter unique administrator passcode" />
+            <small class="status-hint">Restricted access: Enter the unique passcode provided by the portal owner.</small>
           </div>
 
           <div class="form-group">
@@ -616,7 +614,7 @@
         <h3 id="googleModalHeading">Google Account Verification</h3>
         <button type="button" class="close-btn" onclick="closeGoogleModal()">Close</button>
       </div>
-      <p class="modal-subtext">Enter your Google email address. If you have logged in before, your saved profile and requests will be loaded automatically:</p>
+      <p class="modal-subtext">Enter your Google email address. Student emails cannot be used for Officer login and vice versa:</p>
 
       <div class="form-group">
         <label for="customGoogleEmail">GOOGLE EMAIL ADDRESS <span class="req-star">*</span></label>

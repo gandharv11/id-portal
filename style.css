@@ -510,6 +510,7 @@ label {
 input[type="text"],
 input[type="tel"],
 input[type="email"],
+input[type="password"],
 select,
 textarea {
   width: 100%;
@@ -545,7 +546,7 @@ textarea:focus {
   gap: 8px;
 }
 
-/* Custom File Input Control Matching Reference */
+/* Custom File Input Control */
 .sr-only-file {
   position: absolute;
   width: 1px;

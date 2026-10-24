@@ -301,15 +301,23 @@ window.sendOtp = function () {
   const sendBtn = document.getElementById("sendOtpBtn");
   document.getElementById("otpInputGroup").classList.remove("hidden");
 
+  // Calculate actual expiry clock time (15 minutes from now)
+  const expiryDate = new Date(Date.now() + 15 * 60000);
+  const formattedExpiryTime = expiryDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
   if (EMAILJS_CONFIG.ENABLED && window.emailjs) {
     sendBtn.textContent = "Sending Email...";
     sendBtn.disabled = true;
 
+    // Sends otp_code, passcode, and otp so any template variable name works
     const templateParams = {
       to_email: linkedGoogleEmail,
       to_name: document.getElementById("loginName").value.trim() || "Student",
+      otp_code: generatedOtp,
       passcode: generatedOtp,
-      time: "15 minutes"
+      otp: generatedOtp,
+      time: formattedExpiryTime,
+      company_name: "LPU ID Card Portal"
     };
 
     emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_ID, templateParams)
@@ -346,7 +354,7 @@ window.verifyOtp = function () {
     document.getElementById("otpStatusText").textContent = "Status: Account Verified via OTP";
     document.getElementById("smsBanner").classList.add("hidden");
   } else {
-    alert("Incorrect OTP code. Please enter the 4-digit code: " + generatedOtp);
+    alert("Incorrect OTP code. Please enter the 4-digit code sent to your email.");
   }
 };
 

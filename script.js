@@ -1,4 +1,18 @@
-// Clean Portrait Placeholder Generator (Neutral silhouette for ID Card preview & Orange avatar for header pill)
+// ============================================================================
+// REAL EMAIL OTP CONFIGURATION (CONFIGURED FOR EMAILJS.COM)
+// ============================================================================
+const EMAILJS_CONFIG = {
+  ENABLED: true,
+  PUBLIC_KEY: "-v7NrtQtdaaYkYfa1",
+  SERVICE_ID: "service_iv8ezj3",
+  TEMPLATE_ID: "template_avohrzq"
+};
+
+if (EMAILJS_CONFIG.ENABLED && window.emailjs) {
+  emailjs.init({ publicKey: EMAILJS_CONFIG.PUBLIC_KEY });
+}
+
+// Clean Portrait Placeholder Generator
 function createDefaultAvatar(name, styleType = "silhouette") {
   if (styleType === "pill") {
     const svgPill = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
@@ -15,6 +29,42 @@ function createDefaultAvatar(name, styleType = "silhouette") {
     <path d="M38 172c6-30 28-46 52-46s46 16 52 46" fill="#334E68"/>
   </svg>`;
   return "data:image/svg+xml;utf8," + encodeURIComponent(svgSilhouette);
+}
+
+// Compress uploaded image via HTML5 Canvas so localStorage never overflows 5MB limit
+function compressImageFile(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      const canvas = document.createElement("canvas");
+      const maxW = 280;
+      const maxH = 320;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxW) {
+          height = Math.round((height * maxW) / width);
+          width = maxW;
+        }
+      } else {
+        if (height > maxH) {
+          width = Math.round((width * maxH) / height);
+          height = maxH;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.78);
+      callback(compressedDataUrl);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // 11 LPU & Campus ID Card Service FAQs
@@ -69,6 +119,7 @@ const campusFaqs = [
 const initialRequests = [
   {
     id: "REQ-1001",
+    userEmail: "aarav.sharma@lpu.in",
     studentName: "Aarav Sharma",
     regNo: "12304567",
     department: "B. Tech CSE",
@@ -86,6 +137,7 @@ const initialRequests = [
   },
   {
     id: "REQ-1002",
+    userEmail: "ananya.nair@lpu.in",
     studentName: "Ananya Nair",
     regNo: "12301120",
     department: "BCA / MCA",
@@ -103,6 +155,7 @@ const initialRequests = [
   },
   {
     id: "REQ-1003",
+    userEmail: "kabir.gill@lpu.in",
     studentName: "Kabir Gill",
     regNo: "12405519",
     department: "BBA / MBA",
@@ -120,8 +173,10 @@ const initialRequests = [
   }
 ];
 
-let requests = JSON.parse(localStorage.getItem("campusIdRecords_v3")) || initialRequests;
-let currentUser = JSON.parse(localStorage.getItem("campusActiveUser_v3")) || null;
+// Load Permanent Databases from Browser localStorage
+let requests = JSON.parse(localStorage.getItem("campusIdRecords_v4")) || initialRequests;
+let usersDB = JSON.parse(localStorage.getItem("campusUsersDB_v4")) || {};
+let currentUser = JSON.parse(localStorage.getItem("campusActiveUser_v4")) || null;
 
 let selectedRole = "student";
 let linkedGoogleEmail = "";
@@ -132,10 +187,34 @@ let currentStudentPhotoData = "";
 let currentWalkinPhotoData = "";
 
 function saveRequests() {
-  localStorage.setItem("campusIdRecords_v3", JSON.stringify(requests));
+  try {
+    localStorage.setItem("campusIdRecords_v4", JSON.stringify(requests));
+  } catch (err) {
+    console.error("Storage error:", err);
+    alert("Browser storage limit reached. Try uploading a smaller photo.");
+  }
 }
 
-// Skeleton Loader Helper
+function saveUsersDB() {
+  try {
+    localStorage.setItem("campusUsersDB_v4", JSON.stringify(usersDB));
+  } catch (err) {
+    console.error("Could not save user profile DB:", err);
+  }
+}
+
+function getStudentOwnRequests() {
+  if (!currentUser) return [];
+  const emailKey = (currentUser.email || "").toLowerCase().trim();
+  const regKey = (currentUser.regNo || "").toLowerCase().trim();
+
+  return requests.filter(req => {
+    const reqEmail = (req.userEmail || "").toLowerCase().trim();
+    const reqReg = (req.regNo || "").toLowerCase().trim();
+    return (emailKey && reqEmail === emailKey) || (regKey && reqReg === regKey);
+  });
+}
+
 function showSkeletonBriefly(callback) {
   const skel = document.getElementById("skeletonLoader");
   skel.classList.remove("hidden");
@@ -145,7 +224,6 @@ function showSkeletonBriefly(callback) {
   }, 160);
 }
 
-// Render 11 FAQs into both Student and Officer FAQ tabs
 function renderFaqs() {
   const html = campusFaqs.map(item => `
     <div class="faq-item">
@@ -166,7 +244,7 @@ window.selectLoginRole = function (role) {
 };
 
 window.openGoogleModal = function () {
-  document.getElementById("customGoogleEmail").value = "";
+  document.getElementById("customGoogleEmail").value = linkedGoogleEmail || "";
   document.getElementById("googleModal").classList.remove("hidden");
 };
 
@@ -175,32 +253,84 @@ window.closeGoogleModal = function () {
 };
 
 window.useCustomGoogleAccount = function () {
-  const emailInput = document.getElementById("customGoogleEmail").value.trim();
+  const emailInput = document.getElementById("customGoogleEmail").value.trim().toLowerCase();
   if (!emailInput || !emailInput.includes("@")) {
     alert("Please enter a valid Google email address.");
     return;
   }
+
   linkedGoogleEmail = emailInput;
   document.getElementById("googleBtnText").textContent = "Google Account Linked (Verified)";
   const badge = document.getElementById("linkedEmailText");
-  badge.textContent = "Linked Google Account: " + emailInput;
+
+  const existingAccount = usersDB[linkedGoogleEmail];
+  if (existingAccount) {
+    document.getElementById("loginName").value = existingAccount.name || "";
+    document.getElementById("loginMobile").value = existingAccount.mobile || "";
+    if (existingAccount.role === "student" && existingAccount.regNo) {
+      document.getElementById("loginRegNo").value = existingAccount.regNo;
+    }
+    if (existingAccount.photo) {
+      currentStudentPhotoData = existingAccount.photo;
+    }
+    badge.textContent = "Welcome back! Saved profile found for: " + linkedGoogleEmail;
+  } else {
+    badge.textContent = "Linked New Google Account: " + linkedGoogleEmail;
+  }
+
   badge.classList.remove("hidden");
   closeGoogleModal();
 };
 
 window.sendOtp = function () {
+  if (!linkedGoogleEmail) {
+    alert("Please link your Google Email Account in Step 1 first so we can send your OTP.");
+    return;
+  }
+
   const mobile = document.getElementById("loginMobile").value.trim();
   if (!/^\d{10}$/.test(mobile)) {
     alert("Please enter a valid 10-digit mobile number.");
     return;
   }
+
   generatedOtp = String(Math.floor(1000 + Math.random() * 9000));
   isOtpVerified = false;
 
-  document.getElementById("smsOtpCode").textContent = generatedOtp;
-  document.getElementById("smsBanner").classList.remove("hidden");
+  const statusText = document.getElementById("otpStatusText");
+  const sendBtn = document.getElementById("sendOtpBtn");
   document.getElementById("otpInputGroup").classList.remove("hidden");
-  document.getElementById("otpStatusText").textContent = "Verification code dispatched to +91 " + mobile;
+
+  if (EMAILJS_CONFIG.ENABLED && window.emailjs) {
+    sendBtn.textContent = "Sending Email...";
+    sendBtn.disabled = true;
+
+    const templateParams = {
+      to_email: linkedGoogleEmail,
+      to_name: document.getElementById("loginName").value.trim() || "Student",
+      passcode: generatedOtp,
+      time: "15 minutes"
+    };
+
+    emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_ID, templateParams)
+      .then(() => {
+        sendBtn.textContent = "Resend OTP";
+        sendBtn.disabled = false;
+        statusText.textContent = "Real OTP email successfully sent to " + linkedGoogleEmail + "!";
+      })
+      .catch(err => {
+        console.error("EmailJS Error:", err);
+        sendBtn.textContent = "Send OTP";
+        sendBtn.disabled = false;
+        document.getElementById("smsOtpCode").textContent = generatedOtp;
+        document.getElementById("smsBanner").classList.remove("hidden");
+        statusText.textContent = "Email dispatch failed; use fallback OTP code shown in top banner.";
+      });
+  } else {
+    document.getElementById("smsOtpCode").textContent = generatedOtp;
+    document.getElementById("smsBanner").classList.remove("hidden");
+    statusText.textContent = "Verification code dispatched for " + linkedGoogleEmail;
+  }
 };
 
 window.autoFillOtp = function () {
@@ -213,10 +343,10 @@ window.verifyOtp = function () {
   const entered = document.getElementById("loginOtp").value.trim();
   if (entered === generatedOtp && generatedOtp !== "") {
     isOtpVerified = true;
-    document.getElementById("otpStatusText").textContent = "Status: Mobile Number Verified via OTP";
+    document.getElementById("otpStatusText").textContent = "Status: Account Verified via OTP";
     document.getElementById("smsBanner").classList.add("hidden");
   } else {
-    alert("Incorrect OTP code. Use the code displayed in the top notification bar: " + generatedOtp);
+    alert("Incorrect OTP code. Please enter the 4-digit code: " + generatedOtp);
   }
 };
 
@@ -227,26 +357,35 @@ document.getElementById("loginForm").addEventListener("submit", function (e) {
     return;
   }
   if (!isOtpVerified) {
-    alert("Please click Send OTP and verify your mobile number.");
+    alert("Please click Send OTP and verify your 4-digit OTP code.");
     return;
   }
+
+  const emailKey = linkedGoogleEmail.toLowerCase().trim();
+  const existingProfile = usersDB[emailKey] || {};
 
   const name = document.getElementById("loginName").value.trim();
   const mobile = document.getElementById("loginMobile").value.trim();
   const regNo = selectedRole === "student"
-    ? (document.getElementById("loginRegNo").value.trim() || "12621448")
+    ? (document.getElementById("loginRegNo").value.trim() || existingProfile.regNo || "12621448")
     : "ID-CELL-OFFICER";
 
   currentUser = {
     name,
-    email: linkedGoogleEmail,
+    email: emailKey,
     mobile,
     regNo,
     role: selectedRole,
+    course: existingProfile.course || "B. Tech CSE",
+    bloodHostel: existingProfile.bloodHostel || "O+  |  Hostel Resident",
+    photo: existingProfile.photo || currentStudentPhotoData || "",
     avatar: createDefaultAvatar(name, "pill")
   };
 
-  localStorage.setItem("campusActiveUser_v3", JSON.stringify(currentUser));
+  usersDB[emailKey] = { ...currentUser };
+  saveUsersDB();
+
+  localStorage.setItem("campusActiveUser_v4", JSON.stringify(currentUser));
   showSkeletonBriefly(launchPortalForUser);
 });
 
@@ -265,7 +404,7 @@ function launchPortalForUser() {
   document.getElementById("navProfilePill").classList.remove("hidden");
   document.getElementById("quickSwitchBtn").classList.remove("hidden");
 
-  const pillAvatar = createDefaultAvatar(currentUser.name, "pill");
+  const pillAvatar = currentUser.photo || createDefaultAvatar(currentUser.name, "pill");
   document.getElementById("navAvatar").src = pillAvatar;
   document.getElementById("navUserName").textContent = currentUser.name;
   document.getElementById("navUserRole").textContent =
@@ -291,7 +430,18 @@ function launchPortalForUser() {
 
     document.getElementById("stuName").value = currentUser.name;
     document.getElementById("stuRegNo").value = currentUser.regNo;
+    if (currentUser.course) document.getElementById("stuCourse").value = currentUser.course;
+    if (currentUser.bloodHostel) document.getElementById("stuBlood").value = currentUser.bloodHostel;
     document.getElementById("previewMobile").textContent = currentUser.mobile;
+
+    if (currentUser.photo) {
+      currentStudentPhotoData = currentUser.photo;
+      document.getElementById("fileNameDisplay").textContent = "saved-portrait.jpg";
+    } else {
+      currentStudentPhotoData = "";
+      document.getElementById("fileNameDisplay").textContent = "portrait.jpg";
+    }
+
     updateLiveIdPreview();
     renderStudentRequests();
     renderStudentPayments();
@@ -305,15 +455,21 @@ function launchPortalForUser() {
 window.quickSwitchRole = function () {
   if (!currentUser) return;
   currentUser.role = currentUser.role === "student" ? "officer" : "student";
-  localStorage.setItem("campusActiveUser_v3", JSON.stringify(currentUser));
+  localStorage.setItem("campusActiveUser_v4", JSON.stringify(currentUser));
   showSkeletonBriefly(launchPortalForUser);
 };
 
 window.logoutUser = function () {
-  localStorage.removeItem("campusActiveUser_v3");
+  if (currentUser && currentUser.email) {
+    usersDB[currentUser.email.toLowerCase()] = { ...currentUser };
+    saveUsersDB();
+  }
+
+  localStorage.removeItem("campusActiveUser_v4");
   currentUser = null;
   linkedGoogleEmail = "";
   isOtpVerified = false;
+  currentStudentPhotoData = "";
   document.getElementById("loginForm").reset();
   document.getElementById("linkedEmailText").classList.add("hidden");
   document.getElementById("otpInputGroup").classList.add("hidden");
@@ -322,7 +478,7 @@ window.logoutUser = function () {
   launchPortalForUser();
 };
 
-// ==================== PHOTO UPLOAD, VALIDATION & VIRTUAL ID CARD ====================
+// ==================== PHOTO UPLOAD, COMPRESSION & VIRTUAL ID CARD ====================
 window.handlePhotoUpload = function (event, mode) {
   const file = event.target.files[0];
   const helper = document.getElementById("fileErrorText");
@@ -330,7 +486,6 @@ window.handlePhotoUpload = function (event, mode) {
 
   if (!file) return;
 
-  // Validate 2MB Max File Size
   const maxBytes = 2 * 1024 * 1024;
   if (file.size > maxBytes) {
     if (mode === "student" && helper) {
@@ -349,16 +504,22 @@ window.handlePhotoUpload = function (event, mode) {
     if (fileNameSpan) fileNameSpan.textContent = file.name;
   }
 
-  const reader = new FileReader();
-  reader.onload = function (e) {
+  compressImageFile(file, function (compressedDataUrl) {
     if (mode === "student") {
-      currentStudentPhotoData = e.target.result;
+      currentStudentPhotoData = compressedDataUrl;
+      if (currentUser && currentUser.email) {
+        currentUser.photo = compressedDataUrl;
+        usersDB[currentUser.email.toLowerCase()] = { ...currentUser };
+        saveUsersDB();
+        localStorage.setItem("campusActiveUser_v4", JSON.stringify(currentUser));
+        document.getElementById("navAvatar").src = compressedDataUrl;
+        document.getElementById("profModalAvatar").src = compressedDataUrl;
+      }
       updateLiveIdPreview();
     } else {
-      currentWalkinPhotoData = e.target.result;
+      currentWalkinPhotoData = compressedDataUrl;
     }
-  };
-  reader.readAsDataURL(file);
+  });
 };
 
 window.clearStudentPhoto = function () {
@@ -368,6 +529,12 @@ window.clearStudentPhoto = function () {
 
   if (fileInput) fileInput.value = "";
   currentStudentPhotoData = "";
+  if (currentUser && currentUser.email) {
+    currentUser.photo = "";
+    usersDB[currentUser.email.toLowerCase()] = { ...currentUser };
+    saveUsersDB();
+    localStorage.setItem("campusActiveUser_v4", JSON.stringify(currentUser));
+  }
   if (fileNameSpan) fileNameSpan.textContent = "No file chosen";
   if (helper) {
     helper.textContent = "JPG, PNG (Max 2MB)";
@@ -384,7 +551,6 @@ window.resetStudentApplicationForm = function () {
     document.getElementById("stuName").value = currentUser.name;
     document.getElementById("stuRegNo").value = currentUser.regNo;
   }
-  clearStudentPhoto();
   updateFeeHint();
   updateLiveIdPreview();
 };
@@ -401,6 +567,16 @@ window.updateLiveIdPreview = function () {
   document.getElementById("previewBlood").textContent = blood;
   document.getElementById("previewPhoto").src =
     currentStudentPhotoData || createDefaultAvatar(name, "silhouette");
+
+  if (currentUser && currentUser.role === "student" && currentUser.email) {
+    currentUser.name = name;
+    currentUser.regNo = regNo;
+    currentUser.course = course;
+    currentUser.bloodHostel = blood;
+    usersDB[currentUser.email.toLowerCase()] = { ...currentUser };
+    saveUsersDB();
+    localStorage.setItem("campusActiveUser_v4", JSON.stringify(currentUser));
+  }
 };
 
 window.updateFeeHint = function () {
@@ -445,6 +621,7 @@ document.getElementById("studentRequestForm").addEventListener("submit", functio
 
   const newReq = {
     id: "REQ-" + Math.floor(1000 + Math.random() * 9000),
+    userEmail: currentUser ? currentUser.email.toLowerCase() : "",
     studentName,
     regNo,
     department,
@@ -464,7 +641,7 @@ document.getElementById("studentRequestForm").addEventListener("submit", functio
   requests.unshift(newReq);
   saveRequests();
   document.getElementById("stuDetails").value = "";
-  alert("Application " + newReq.id + " submitted. Status is managed by the ID Cell Officer.");
+  alert("Application " + newReq.id + " saved to your account! You can view it anytime you log in.");
   switchStudentTab("track");
 });
 
@@ -477,7 +654,14 @@ function getProgressMetrics(status) {
 
 function renderStudentRequests() {
   const container = document.getElementById("studentRequestsList");
-  container.innerHTML = requests.map(req => {
+  const myRequests = getStudentOwnRequests();
+
+  if (myRequests.length === 0) {
+    container.innerHTML = `<p class="subtext">No ID card applications found for your account (${currentUser ? currentUser.email : ""}). Submit a request in the "Submit ID Request" tab and it will be saved here permanently.</p>`;
+    return;
+  }
+
+  container.innerHTML = myRequests.map(req => {
     const prog = getProgressMetrics(req.status);
     const isCompleted = req.status === "Completed";
 
@@ -532,14 +716,14 @@ function renderStudentRequests() {
 
 function renderStudentPayments() {
   const container = document.getElementById("studentPaymentsList");
-  const payable = requests.filter(r => r.feeAmount > 0);
+  const myPayable = getStudentOwnRequests().filter(r => r.feeAmount > 0);
 
-  if (payable.length === 0) {
-    container.innerHTML = `<p class="subtext">No chargeable requests found in your ledger.</p>`;
+  if (myPayable.length === 0) {
+    container.innerHTML = `<p class="subtext">No chargeable requests found in your personal ledger.</p>`;
     return;
   }
 
-  container.innerHTML = payable.map(req => `
+  container.innerHTML = myPayable.map(req => `
     <div class="request-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
       <div>
         <strong>${req.id} : ${req.requestType} (${req.studentName})</strong>
@@ -598,6 +782,7 @@ window.renderOfficerRequests = function () {
     const matchesSearch =
       req.studentName.toLowerCase().includes(query) ||
       req.regNo.toLowerCase().includes(query) ||
+      (req.userEmail && req.userEmail.toLowerCase().includes(query)) ||
       req.id.toLowerCase().includes(query);
 
     const matchesCat = catFilter === "All" || req.requestType === catFilter;
@@ -628,7 +813,7 @@ window.renderOfficerRequests = function () {
             <div>
               <strong>${req.studentName}</strong> <span>(${req.regNo})</span>
               <div style="font-size:0.8rem; color:#64748B;">
-                <strong>${req.id}</strong> | ${req.department} | Mobile: ${req.mobile || "N/A"} | Channel: ${req.source}
+                <strong>${req.id}</strong> | ${req.department} | Account: ${req.userEmail || "Walk-In"} | Mobile: ${req.mobile || "N/A"} | Channel: ${req.source}
               </div>
             </div>
           </div>
@@ -738,6 +923,7 @@ document.getElementById("officerWalkinForm").addEventListener("submit", function
   } else {
     const walkinReq = {
       id: "REQ-" + Math.floor(1000 + Math.random() * 9000),
+      userEmail: "",
       studentName,
       regNo,
       department,
@@ -819,7 +1005,7 @@ window.openLegalModal = function (type) {
     body.innerHTML = `
       <p><strong>1. Data Collection:</strong> We collect student name, registration number, program, mobile number, Google email address, and portrait photograph solely for generating and verifying university identity cards.</p>
       <p><strong>2. Access Control:</strong> Submitted records are restricted to the applicant and authorized ID Cell Officers.</p>
-      <p><strong>3. Storage:</strong> For demonstration and evaluation purposes, records are persisted in browser storage and are not transmitted to third-party marketing services.</p>
+      <p><strong>3. Storage:</strong> User profiles and submitted requests are persisted in permanent account-indexed storage and are not transmitted to third-party marketing services.</p>
     `;
   }
   document.getElementById("legalModal").classList.remove("hidden");

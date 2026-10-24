@@ -9,13 +9,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <!-- Free EmailJS SDK for Real Email OTP -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
-  <!-- Top SMS OTP Dispatch Banner -->
+  <!-- Top OTP Dispatch Banner -->
   <div id="smsBanner" class="sms-banner hidden" role="status" aria-live="polite">
     <div class="sms-content">
-      <strong>SMS VERIFICATION DISPATCH</strong>
+      <strong>VERIFICATION OTP DISPATCH</strong>
       <p>Your Campus ID Portal verification code is <span id="smsOtpCode" class="otp-highlight">4829</span></p>
     </div>
     <button type="button" class="btn-secondary btn-sm" onclick="autoFillOtp()">Auto-Fill Code</button>
@@ -25,7 +27,6 @@
   <header class="navbar">
     <div class="container nav-container">
       <div class="brand-wrapper">
-        <!-- Official LPU Logo Asset with Clean Placeholder Fallback -->
         <div class="lpu-brand-lockup">
           <img
             src="https://www.lpu.in/images/logo/logo.svg"
@@ -100,7 +101,7 @@
       <div class="auth-card">
         <div class="auth-header">
           <h2>Portal Authentication</h2>
-          <p>Select your portal role and complete Google Email and Mobile OTP verification.</p>
+          <p>Select your portal role and complete Google Email and OTP verification. Returning users' profiles and requests are restored automatically.</p>
         </div>
 
         <div class="role-selector" role="group" aria-label="Select Portal Role">
@@ -132,10 +133,10 @@
           </div>
 
           <div class="form-group">
-            <label for="loginMobile">MOBILE NUMBER (10 DIGITS) <span class="req-star">*</span></label>
+            <label for="loginMobile">MOBILE NUMBER &amp; EMAIL OTP DISPATCH <span class="req-star">*</span></label>
             <div class="input-with-btn">
               <input type="tel" id="loginMobile" placeholder="Enter 10-digit mobile number" maxlength="10" required />
-              <button type="button" class="btn-secondary" onclick="sendOtp()">Send OTP</button>
+              <button type="button" id="sendOtpBtn" class="btn-secondary" onclick="sendOtp()">Send OTP</button>
             </div>
           </div>
 
@@ -156,7 +157,6 @@
     <!-- ==================== 2. STUDENT PORTAL ==================== -->
     <section id="studentPortal" class="hidden">
 
-      <!-- Connected Horizontal Navigation Tabs -->
       <nav class="portal-tabs" aria-label="Student Portal Navigation">
         <button type="button" class="tab-btn active" onclick="switchStudentTab('apply')">
           <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -200,7 +200,6 @@
       <!-- STUDENT TAB 1: Submit Request + Live Virtual ID Card Preview -->
       <div id="studentApplyTab" class="two-col-grid">
         
-        <!-- Left Column: Application Form -->
         <div class="card">
           <div class="panel-heading">
             <div class="panel-icon-box outline" aria-hidden="true">
@@ -384,17 +383,17 @@
 
       </div>
 
-      <!-- STUDENT TAB 2: Track Requests (Read-Only Status) -->
+      <!-- STUDENT TAB 2: Track Requests (Personal Account History) -->
       <div id="studentTrackTab" class="card hidden">
-        <h2>Submitted Applications &amp; Live Status</h2>
-        <p class="subtext">Processing status is locked for students and updated solely by the ID Cell Officer upon verification.</p>
+        <h2>My Submitted Applications &amp; Live Status</h2>
+        <p class="subtext">Showing requests linked to your account. Processing status is updated solely by the ID Cell Officer upon verification.</p>
         <div id="studentRequestsList" class="requests-list"></div>
       </div>
 
       <!-- STUDENT TAB 3: Fee Payment -->
       <div id="studentPaymentsTab" class="card hidden">
-        <h2>Service Fee Payment Desk</h2>
-        <p class="subtext">Clear pending charges for Details Correction (Rs. 100) or Replacement Cards (Rs. 250).</p>
+        <h2>My Service Fee Payment Desk</h2>
+        <p class="subtext">Clear pending charges for your Details Correction (Rs. 100) or Replacement Cards (Rs. 250).</p>
         <div id="studentPaymentsList" class="requests-list"></div>
       </div>
 
@@ -410,7 +409,6 @@
     <!-- ==================== 3. ID CELL OFFICER PORTAL ==================== -->
     <section id="officerPortal" class="hidden">
 
-      <!-- 4-Column Summary Metrics Bar -->
       <div class="summary-grid">
         <div class="stat-card">
           <span>Total Logged Requests</span>
@@ -448,10 +446,10 @@
       <!-- OFFICER TAB 1: Manage, Filter & Update Records -->
       <div id="officerManageTab" class="card">
         <h2>Master Identity Request Register</h2>
-        <p class="subtext">Verify applications, update processing stages, filter Completed vs Incomplete records, or edit student particulars.</p>
+        <p class="subtext">Verify applications from all student accounts, update processing stages, filter Completed vs Incomplete records, or edit student particulars.</p>
 
         <div class="filter-bar">
-          <input type="text" id="officerSearch" placeholder="Search by Student Name, Reg No, or Request ID..." oninput="renderOfficerRequests()" />
+          <input type="text" id="officerSearch" placeholder="Search by Student Name, Reg No, Email, or Request ID..." oninput="renderOfficerRequests()" />
 
           <select id="officerRecordFilter" onchange="triggerFilteredRender()">
             <option value="All">All Records (Completed &amp; Incomplete)</option>
@@ -476,7 +474,7 @@
       <!-- OFFICER TAB 2: Physical Walk-In Desk Form -->
       <div id="officerWalkinTab" class="card hidden">
         <h2 id="walkinFormTitle">Physical Walk-In Student Request Entry</h2>
-        <p class="subtext">For students visiting the administrative desk in person without prior online submission.</p>
+        <p class="subtext">For students visiting the administrative desk in person without prior online submission. Entering the student's Registration No. links this record to their account.</p>
 
         <form id="officerWalkinForm">
           <input type="hidden" id="editRecordId" />
@@ -618,7 +616,7 @@
         <h3 id="googleModalHeading">Google Account Verification</h3>
         <button type="button" class="close-btn" onclick="closeGoogleModal()">Close</button>
       </div>
-      <p class="modal-subtext">Enter your personal or university Google email address to link your identity profile:</p>
+      <p class="modal-subtext">Enter your Google email address. If you have logged in before, your saved profile and requests will be loaded automatically:</p>
 
       <div class="form-group">
         <label for="customGoogleEmail">GOOGLE EMAIL ADDRESS <span class="req-star">*</span></label>
